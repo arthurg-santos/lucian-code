@@ -26,8 +26,8 @@ Ferramentas como Claude Code e Cursor são poderosas, mas caras e fechadas. O Lu
 
 - **3 modos de operação**: Chat, Plan e Build
 - **Modelos locais via Ollama**: rode de graça, sem API key, sem internet
-- **Maritaca AI**: suporte nativo ao Sabiá-3 e outros modelos brasileiros
-- **OpenRouter**: acesso a 100+ modelos (GPT-4o, Claude, Gemini, Llama...)
+- **Maritaca AI**: suporte nativo ao S5 (grátis, nano, ou inferência no Brasil) e outros modelos brasileiros
+- **OpenRouter**: acesso a 100+ modelos (GPT-6-Astra, Claude, Gemini, Muse Wonder...)
 - **Troca dinâmica de modelos**: mude o modelo sem reiniciar a sessão
 - **Execução agêntica real**: cria, edita e gerencia arquivos no sistema
 - **LUCIAN.md**: customização de comportamento por projeto
@@ -162,14 +162,14 @@ lucian> /switch-model ollama/llama3.2
 
 **Maritaca AI (modelos brasileiros)**
 ```bash
-lucian> /switch-model sabia-3
+lucian> /switch-model S5
 ```
 
 **OpenRouter**
 ```bash
 lucian> /switch-model qwen/qwen3.7-plus          # padrão
-lucian> /switch-model anthropic/claude-3.5-sonnet
-lucian> /switch-model openai/gpt-4o
+lucian> /switch-model anthropic/claude-opus-5.5
+lucian> /switch-model openai/gpt-6-astra
 lucian> /switch-model meta-llama/llama-3.1-405b-instruct
 ```
 
@@ -290,6 +290,7 @@ git push origin feature/minha-feature
 - [x] Suporte a Ollama (modelos locais)
 - [x] Suporte a Maritaca AI
 - [x] Customização por projeto via LUCIAN.md
+- [x] Suporte a quinta geração do Sabiá (Maritaca)
 - [ ] Execução de comandos shell
 - [ ] Integração com git
 - [ ] Sistema de plugins/skills
