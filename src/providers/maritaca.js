@@ -1,7 +1,7 @@
 import { BaseProvider } from "./base.js";
 import { Logger } from "../utils/logger.js";
 
-export const MARITALK_MODELS = ["sabiazinho-4", "sabia-4"];
+export const MARITALK_MODELS = ["sabiazinho-4", "sabia-4", "S5", "S5-br-sp", "S5-nano", "S5-free"];
 const MARITALK_BASE_URL = "https://chat.maritaca.ai/api";
 
 export class MaritalkProvider extends BaseProvider {
