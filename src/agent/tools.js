@@ -5,8 +5,9 @@ import {
   readFileSync,
   readdirSync,
   statSync,
+  realpathSync,
 } from "fs";
-import { join, dirname } from "path";
+import { resolve, relative, isAbsolute, dirname, sep } from "path";
 import { Logger } from "../utils/logger.js";
 
 export const TOOL_DEFINITIONS = [
@@ -177,9 +178,53 @@ export const TOOL_DEFINITIONS = [
   },
 ];
 
+// Ferramentas que modificam o sistema de arquivos e exigem confirmação.
+export const MUTATING_TOOLS = new Set([
+  "create_file",
+  "edit_file",
+  "replace_in_file",
+  "insert_at_line",
+  "delete_file",
+  "create_directory",
+]);
+
 export class ToolExecutor {
   constructor(workingDir = process.cwd()) {
-    this.workingDir = workingDir;
+    this.workingDir = resolve(workingDir);
+  }
+
+  /**
+   * Resolve um caminho relativo garantindo que ele fique dentro de workingDir.
+   * Bloqueia "../", caminhos absolutos fora do projeto e symlinks que escapam.
+   */
+  safePath(path) {
+    if (typeof path !== "string" || path.length === 0) {
+      throw new Error("Invalid path");
+    }
+    const root = this._real(this.workingDir);
+    const full = resolve(this.workingDir, path);
+
+    // Resolve symlinks do ancestral existente mais próximo
+    let probe = full;
+    while (!existsSync(probe) && dirname(probe) !== probe) {
+      probe = dirname(probe);
+    }
+    const realProbe = this._real(probe);
+    const realFull = realProbe + full.slice(probe.length);
+
+    const rel = relative(root, realFull);
+    if (rel === ".." || rel.startsWith(".." + sep) || isAbsolute(rel)) {
+      throw new Error(`Path outside project directory: ${path}`);
+    }
+    return full;
+  }
+
+  _real(p) {
+    try {
+      return realpathSync(p);
+    } catch {
+      return p;
+    }
   }
 
   async execute(toolName, params) {
@@ -209,7 +254,7 @@ export class ToolExecutor {
 
   async createFile(params) {
     const { path, content } = params;
-    const fullPath = join(this.workingDir, path);
+    const fullPath = this.safePath(path);
 
     const dir = dirname(fullPath);
     if (!existsSync(dir)) {
@@ -229,7 +274,7 @@ export class ToolExecutor {
 
   async editFile(params) {
     const { path, content } = params;
-    const fullPath = join(this.workingDir, path);
+    const fullPath = this.safePath(path);
 
     if (!existsSync(fullPath)) {
       throw new Error(`File not found: ${path}`);
@@ -247,7 +292,7 @@ export class ToolExecutor {
 
   async replaceInFile(params) {
     const { path, oldText, newText } = params;
-    const fullPath = join(this.workingDir, path);
+    const fullPath = this.safePath(path);
 
     if (!existsSync(fullPath)) {
       throw new Error(`File not found: ${path}`);
@@ -255,11 +300,18 @@ export class ToolExecutor {
 
     let content = readFileSync(fullPath, "utf-8");
 
-    if (!content.includes(oldText)) {
+    if (!oldText || !content.includes(oldText)) {
       throw new Error(`Text pattern not found in file: ${path}`);
     }
 
-    content = content.split(oldText).join(newText);
+    const occurrences = content.split(oldText).length - 1;
+    if (occurrences > 1) {
+      throw new Error(
+        `Text pattern appears ${occurrences} times in ${path}. Provide a longer, unique oldText.`,
+      );
+    }
+
+    content = content.replace(oldText, () => newText);
     writeFileSync(fullPath, content, "utf-8");
     Logger.info(`Replaced text in file: ${fullPath}`);
 
@@ -272,7 +324,7 @@ export class ToolExecutor {
 
   async insertAtLine(params) {
     const { path, lineNumber, content } = params;
-    const fullPath = join(this.workingDir, path);
+    const fullPath = this.safePath(path);
 
     if (!existsSync(fullPath)) {
       throw new Error(`File not found: ${path}`);
@@ -300,7 +352,7 @@ export class ToolExecutor {
 
   async deleteFile(params) {
     const { path } = params;
-    const fullPath = join(this.workingDir, path);
+    const fullPath = this.safePath(path);
 
     if (!existsSync(fullPath)) {
       throw new Error(`File not found: ${path}`);
@@ -319,7 +371,7 @@ export class ToolExecutor {
 
   async createDirectory(params) {
     const { path } = params;
-    const fullPath = join(this.workingDir, path);
+    const fullPath = this.safePath(path);
 
     if (!existsSync(fullPath)) {
       mkdirSync(fullPath, { recursive: true });
@@ -335,12 +387,12 @@ export class ToolExecutor {
 
   async listFiles(params) {
     const { path = "." } = params;
-    const fullPath = join(this.workingDir, path);
+    const fullPath = this.safePath(path);
 
     const files = readdirSync(fullPath);
 
     const result = files.map((file) => {
-      const filePath = join(fullPath, file);
+      const filePath = resolve(fullPath, file);
       const stats = statSync(filePath);
       return {
         name: file,
@@ -357,7 +409,7 @@ export class ToolExecutor {
 
   async readFile(params) {
     const { path } = params;
-    const fullPath = join(this.workingDir, path);
+    const fullPath = this.safePath(path);
 
     if (!existsSync(fullPath)) {
       throw new Error(`File not found: ${path}`);
