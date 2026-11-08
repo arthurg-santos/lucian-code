@@ -1,7 +1,7 @@
 import { Logger } from "../utils/logger.js";
 import { getSystemPrompt } from "./modes.js";
 import { ModelNotFoundError } from "../providers/openrouter.js";
-import { ToolExecutor, TOOL_DEFINITIONS } from "./tools.js";
+import { ToolExecutor, TOOL_DEFINITIONS, MUTATING_TOOLS } from "./tools.js";
 
 export class Agent {
   constructor(provider, memory, context) {
@@ -10,6 +10,30 @@ export class Agent {
     this.context = context;
     this.toolExecutor = new ToolExecutor();
     this.maxIterations = 10;
+    this.autoApprove = false;
+  }
+
+  /**
+   * Pede confirmação ao usuário antes de modificar arquivos.
+   * Respostas: y (sim), n (não), a (sim para tudo nesta sessão).
+   * Sem callback de confirmação disponível, nega por segurança.
+   */
+  async confirmTool(name, params) {
+    if (!MUTATING_TOOLS.has(name) || this.autoApprove) return true;
+    if (typeof this.context.confirm !== "function") return false;
+
+    const target = params.path ? ` ${params.path}` : "";
+    const answer = (
+      await this.context.confirm(`Allow ${name}${target}? [y/N/a=always] `)
+    )
+      .trim()
+      .toLowerCase();
+
+    if (answer === "a" || answer === "always") {
+      this.autoApprove = true;
+      return true;
+    }
+    return answer === "y" || answer === "yes";
   }
 
   async processInput(userInput) {
@@ -67,6 +91,10 @@ export class Agent {
               try {
                 const params = JSON.parse(toolCall.function.arguments);
                 console.log(`Parameters: ${JSON.stringify(params, null, 2)}`);
+
+                if (!(await this.confirmTool(toolCall.function.name, params))) {
+                  throw new Error("User denied this action");
+                }
 
                 const result = await this.toolExecutor.execute(
                   toolCall.function.name,
