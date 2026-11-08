@@ -74,10 +74,11 @@ async function main() {
     },
   };
 
+  const rl = createInterface({ input: stdin, output: stdout });
+  context.confirm = (question) => rl.question(question);
+
   const agent = new Agent(provider, memory, context);
   context.agent = agent;
-
-  const rl = createInterface({ input: stdin, output: stdout });
 
   console.log(`System initialized with ${providerName} provider.`);
   console.log("Type /help for commands.\n");
